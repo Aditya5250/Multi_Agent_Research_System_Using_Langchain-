@@ -1,5 +1,5 @@
-from src.tools.tools import web_search, scrape_url
+from src.pipelines.pipeline import run_research_pipeline
 
-result = web_search.invoke("what is langchain?")
+topic = "The Future of AI in Healthcare: How AI Can Help Improve Patient Care and Reduce Costs"
 
-print(result)
+run_research_pipeline(topic)
