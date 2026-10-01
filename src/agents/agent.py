@@ -9,29 +9,31 @@ load_dotenv()
 
 # Model Initialization
 
-llm = ChatGoogleGenerativeAI(
-    model = "models/gemini-3.6-flash",
-    api_key = os.getenv("GEMINI_API_KEY"),
-)
+def get_llm(model_name: str = None, api_key: str = None) -> ChatGoogleGenerativeAI:
+    selected_model = model_name or os.getenv("GEMINI_MODEL") or "models/gemini-3.5-flash-lite"
+    key = api_key or os.getenv("GEMINI_API_KEY")
+    return ChatGoogleGenerativeAI(
+        model=selected_model,
+        api_key=key,
+        max_retries=2,
+    )
+
+llm = get_llm()
 
 
 # 1st Agent: Search Agent 
-def build_search_agent():
-    return(
-        create_agent(
-            model = llm,
-            tools = [web_search],
-        )
+def build_search_agent(model=None):
+    return create_agent(
+        model=model or llm,
+        tools=[web_search],
     )
 
 
 # 2nd Agent: Reader Agent
-def build_reader_agent():
-    return(
-        create_agent(
-            model = llm,
-            tools = [scrape_url],
-        )
+def build_reader_agent(model=None):
+    return create_agent(
+        model=model or llm,
+        tools=[scrape_url],
     )
 
 # writer chain
@@ -41,7 +43,7 @@ writer_prompt = ChatPromptTemplate.from_messages([
 
     Topic: {topic}
 
-    Research Gatheres: {research}
+    Research Gathered: {research}
 
     Structure the report as:
     - Introduction
@@ -52,16 +54,16 @@ writer_prompt = ChatPromptTemplate.from_messages([
     Be detailed, factual and professional."""),
 ])
 
+def build_writer_chain(model=None):
+    return writer_prompt | (model or llm) | StrOutputParser()
 
-writer_chain =  writer_prompt | llm | StrOutputParser()
-
+writer_chain = build_writer_chain()
 
 
 # Critic chain
-
 critic_prompt = ChatPromptTemplate.from_messages([
     ("system", "You are a sharp and constructive research critic. Be honest and specific."),
-    ("human", """Review the research report below and evalute it strictly.
+    ("human", """Review the research report below and evaluate it strictly.
 
     Report:{report}
 
@@ -81,7 +83,10 @@ critic_prompt = ChatPromptTemplate.from_messages([
 """),
 ])
 
+def build_critic_chain(model=None):
+    return critic_prompt | (model or llm) | StrOutputParser()
 
-critic_chain = critic_prompt | llm | StrOutputParser()
+critic_chain = build_critic_chain()
+
 
 
