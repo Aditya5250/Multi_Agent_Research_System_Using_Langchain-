@@ -39,8 +39,20 @@ def run_research_pipeline(topic: str, step_callback=None, model=None) -> dict:
         "messages": [("user", f"Find recent, reliable and detailed information about: {topic}")]
     })
 
-    raw_search = search_result["messages"][-1].content
-    state["search_result"] = _extract_text(raw_search)
+    tool_outputs = []
+    for msg in search_result.get("messages", []):
+        msg_type = type(msg).__name__
+        if msg_type == "ToolMessage" or getattr(msg, "name", None) == "web_search":
+            tool_outputs.append(_extract_text(msg.content))
+        elif hasattr(msg, "tool_call_id") or "tool" in getattr(msg, "type", ""):
+            tool_outputs.append(_extract_text(msg.content))
+
+    ai_summary = _extract_text(search_result["messages"][-1].content)
+
+    if tool_outputs:
+        state["search_result"] = "\n\n".join(tool_outputs) + "\n\nAGENT SUMMARY:\n" + ai_summary
+    else:
+        state["search_result"] = ai_summary
 
     print("\n search result ", state['search_result'])
     if step_callback:
